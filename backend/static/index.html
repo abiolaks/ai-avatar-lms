@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Avatar Learning Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Learning Assistant</h1>
+            <div id="status" class="status disconnected">Disconnected</div>
+        </header>
+        
+        <main>
+            <div class="avatar-container">
+                <!-- Placeholder for Avatar Video -->
+                <div id="avatar-video" class="avatar-placeholder">
+                    <div class="avatar-face">
+                        <div class="eye left"></div>
+                        <div class="eye right"></div>
+                        <div class="mouth"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="recordButton" class="btn primary">
+                    <span class="icon">🎙️</span> Hold to Speak
+                </button>
+            </div>
+
+            <div class="conversation-log" id="conversationLog">
+                <!-- Messages will appear here -->
+                <div class="message system">Welcome! Press and hold the button to speak to your AI assistant.</div>
+            </div>
+            
+            <div id="recommendation-panel" class="recommendation-panel hidden">
+                <h3>Recommended Course</h3>
+                <div id="course-details"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
