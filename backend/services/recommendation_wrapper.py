@@ -3,28 +3,50 @@ import os
 import logging
 from typing import Dict, List
 
-# Add the project root to sys.path to allow importing from learning_management_system_lms
+# logger configuration
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("ai_avatar_backend.recommendation")
+
+# Add the project root to sys.path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
-# Fix for legacy imports (e.g. 'from models import ...' inside recommender_engine)
+# Construct path to recommendation engine src
+# Structure: backend/services/../../learning_management_system_lms/recommendation_system/src
 RECOMMENDATION_SRC = os.path.join(PROJECT_ROOT, "learning_management_system_lms", "recommendation_system", "src")
-if RECOMMENDATION_SRC not in sys.path:
-    sys.path.append(RECOMMENDATION_SRC)
 
-# Now we can import directly because RECOMMENDATION_SRC is in sys.path
+logger.info(f"Project Root: {PROJECT_ROOT}")
+logger.info(f"Recommendation SRC Path: {RECOMMENDATION_SRC}")
+
+if os.path.exists(RECOMMENDATION_SRC):
+    if RECOMMENDATION_SRC not in sys.path:
+        sys.path.insert(0, RECOMMENDATION_SRC) # Insert at beginning to prioritize
+        logger.info(f"Added {RECOMMENDATION_SRC} to sys.path")
+else:
+    logger.error(f"Path does not exist: {RECOMMENDATION_SRC}")
+    # Fallback/Debug: List directories in project root
+    try:
+        logger.info(f"Contents of {PROJECT_ROOT}: {os.listdir(PROJECT_ROOT)}")
+        lms_path = os.path.join(PROJECT_ROOT, "learning_management_system_lms")
+        if os.path.exists(lms_path):
+             logger.info(f"Contents of {lms_path}: {os.listdir(lms_path)}")
+    except Exception as e:
+        logger.error(f"Could not list directories: {e}")
+
 try:
+    # Try importing models first to verify path
+    import models
+    logger.info("Successfully imported models")
     from recommender_engine import ContentBasedRecommender
     from integration_service import LMSIntegrationService
     from data_generator import RealDataLoader, MockDataGenerator
-except ImportError:
-    # Fallback to absolute import if direct import fails (though the sys.path append should fix it)
-    from learning_management_system_lms.recommendation_system.src.recommender_engine import ContentBasedRecommender
-    from learning_management_system_lms.recommendation_system.src.integration_service import LMSIntegrationService
-    from learning_management_system_lms.recommendation_system.src.data_generator import RealDataLoader, MockDataGenerator
-
-logger = logging.getLogger("ai_avatar_backend.recommendation")
+    logger.info("Successfully imported recommendation modules")
+except ImportError as e:
+    logger.error(f"Failed to import recommendation modules: {e}")
+    # Attempt to print sys.path for debugging
+    logger.error(f"sys.path: {sys.path}")
+    raise
 
 class RecommendationServiceWrapper:
     def __init__(self):
