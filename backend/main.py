@@ -58,7 +58,8 @@ async def avatar_stream(websocket: WebSocket):
                 # Received audio data
                 audio_data = message["bytes"]
                 file_id = str(uuid.uuid4())
-                input_file = os.path.join(TEMP_DIR, f"{file_id}.wav")
+                # Browsers usually send WebM/Ogg
+                input_file = os.path.join(TEMP_DIR, f"{file_id}.webm")
                 
                 with open(input_file, "wb") as f:
                     f.write(audio_data)
@@ -82,17 +83,17 @@ async def avatar_stream(websocket: WebSocket):
                 action = nlu_response.get("action")
                 data = nlu_response.get("data")
                 
-                logger.info(f"AI Response: {response_text}")
+                # 3. TTS
+                audio_url = tts_service.generate_audio(response_text)
+                
+                logger.info(f"AI Response: {response_text}, Audio: {audio_url}")
                 await websocket.send_json({
                     "type": "response_text", 
                     "text": response_text,
+                    "audio_url": audio_url,
                     "action": action,
                     "data": data
                 })
-                
-                # 3. TTS (Optional for now)
-                # tts_service.generate_audio(response_text)
-                # await websocket.send_text("Audio response generated (mock)")
                 
                 # Cleanup
                 if os.path.exists(input_file):

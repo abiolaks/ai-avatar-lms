@@ -37,7 +37,12 @@ function handleServerMessage(data) {
         addMessage(data.text, 'user');
     } else if (data.type === 'response_text') {
         addMessage(data.text, 'ai');
-        speak(data.text); # Mock lip sync
+
+        if (data.audio_url) {
+            playAudio(data.audio_url);
+        } else {
+            speakVisuals(data.text); // Fallback
+        }
 
         if (data.action === 'recommend_course' && data.data) {
             showRecommendation(data.data);
@@ -53,8 +58,17 @@ function addMessage(text, sender) {
     conversationLog.scrollTop = conversationLog.scrollHeight;
 }
 
-function speak(text) {
-    // Simple visual simulation of speaking
+function playAudio(url) {
+    const audio = new Audio(url);
+    avatarFace.classList.add('speaking');
+    audio.onended = () => {
+        avatarFace.classList.remove('speaking');
+    };
+    audio.play().catch(e => console.error("Audio play failed", e));
+}
+
+function speakVisuals(text) {
+    // Simple visual simulation of speaking (fallback)
     const duration = Math.min(text.length * 50, 3000);
     avatarFace.classList.add('speaking');
     setTimeout(() => {

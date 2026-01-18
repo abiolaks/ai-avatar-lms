@@ -1,21 +1,31 @@
 import logging
 import os
+import uuid
+from gtts import gTTS
 
 logger = logging.getLogger("ai_avatar_backend.tts")
 
 class TTSService:
     def __init__(self):
-        pass
+        self.output_dir = "static/audio"
+        os.makedirs(self.output_dir, exist_ok=True)
 
-    def generate_audio(self, text: str, output_path: str = "output_audio.mp3"):
+    def generate_audio(self, text: str) -> str:
         """
-        Generate audio from text.
-        For MVP, this is a mock that might just copy a sample audio file or do nothing.
+        Generate audio from text using gTTS.
+        Returns the relative path to the audio file.
         """
         logger.info(f"Generating TTS for: {text}")
-        # TODO: Integrate real TTS (e.g. gTTS, Coqui, EdgeTTS)
-        
-        # For now, we simulate success
-        return output_path
+        try:
+            filename = f"{uuid.uuid4()}.mp3"
+            filepath = os.path.join(self.output_dir, filename)
+            
+            tts = gTTS(text=text, lang='en')
+            tts.save(filepath)
+            
+            return f"/static/audio/{filename}"
+        except Exception as e:
+            logger.error(f"TTS Generation failed: {e}")
+            return ""
 
 tts_service = TTSService()
