@@ -6,4 +6,6 @@ numpy
 scikit-learn
 pandas
 openai
+openai-whisper
+gTTS
 requests

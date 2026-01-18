@@ -8,9 +8,21 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
-from learning_management_system_lms.recommendation_system.src.recommender_engine import ContentBasedRecommender
-from learning_management_system_lms.recommendation_system.src.integration_service import LMSIntegrationService
-from learning_management_system_lms.recommendation_system.src.data_generator import RealDataLoader, MockDataGenerator
+# Fix for legacy imports (e.g. 'from models import ...' inside recommender_engine)
+RECOMMENDATION_SRC = os.path.join(PROJECT_ROOT, "learning_management_system_lms", "recommendation_system", "src")
+if RECOMMENDATION_SRC not in sys.path:
+    sys.path.append(RECOMMENDATION_SRC)
+
+# Now we can import directly because RECOMMENDATION_SRC is in sys.path
+try:
+    from recommender_engine import ContentBasedRecommender
+    from integration_service import LMSIntegrationService
+    from data_generator import RealDataLoader, MockDataGenerator
+except ImportError:
+    # Fallback to absolute import if direct import fails (though the sys.path append should fix it)
+    from learning_management_system_lms.recommendation_system.src.recommender_engine import ContentBasedRecommender
+    from learning_management_system_lms.recommendation_system.src.integration_service import LMSIntegrationService
+    from learning_management_system_lms.recommendation_system.src.data_generator import RealDataLoader, MockDataGenerator
 
 logger = logging.getLogger("ai_avatar_backend.recommendation")
 
