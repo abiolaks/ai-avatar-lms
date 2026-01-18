@@ -1,0 +1,6 @@
+[submodule "learning_management_system_lms"]
+	path = learning_management_system_lms
+	url = https://github.com/abiolaks/learning_management_system_lms.git
+[submodule "course-qa-system"]
+	path = course-qa-system
+	url = https://github.com/abiolaks/course-qa-system.git
