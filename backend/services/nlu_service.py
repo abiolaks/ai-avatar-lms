@@ -1,14 +1,20 @@
 import logging
-import re
+import json
+import requests
 from typing import Dict, Optional, Tuple
 from .recommendation_wrapper import recommendation_service
 
 logger = logging.getLogger("ai_avatar_backend.nlu")
 
+# Configuration for Ollama
+OLLAMA_URL = "http://localhost:11434/api/generate"
+# Using a widely available lightweight model. User requested qwen3:0.6b, assuming qwen2.5:0.5b or similiar.
+# You can change this to the exact model name present in your `ollama list`
+OLLAMA_MODEL = "qwen2.5:0.5b" 
+
 class NLUService:
     """
-    Simple NLU service for MVP.
-    Extracts intent and entities using regex/keywords.
+    NLU Service using Local LLM (Ollama).
     """
     
     def __init__(self):
@@ -20,7 +26,7 @@ class NLUService:
         """
         logger.info(f"Processing text: {text}")
         
-        intent, entities = self._classify_intent(text)
+        intent, entities = self._classify_intent_ollama(text)
         logger.info(f"Detected intent: {intent}, entities: {entities}")
         
         response = {
@@ -30,66 +36,106 @@ class NLUService:
         }
 
         if intent == "learning_goal":
-            # Call specific recommendation logic
-            # For now, we construct a user profile update based on the goal
-            # This is a simplification. In a real app, we'd fetch the user profile first.
+            # Extract Goal
+            goal = entities.get("goal") or "learn something"
+            category = entities.get("category") or "General"
             
-            # Mock user data update
-            if entities.get("goal"):
-                # We need to adapt this to calls to recommendation_wrapper
-                # But recommendation wrapper takes full user data.
-                # For this MVP, let's create a dummy user with this goal.
+            # Construct synthetic user profile
+            user_data = {
+                "user_id": user_id,
+                "name": "Current User",
+                "job_role": "Learner",
+                "department": "General",
+                "skill_level": "Beginner",
+                "learning_goal": goal,
+                "preferred_category": category,
+                "preferred_difficulty": "Beginner",
+                "preferred_duration": "Medium",
+                "known_skills": [],
+                "enrolled_courses": []
+            }
+            
+            try:
+                recs = recommendation_service.get_recommendations(user_data)
                 
-                user_data = {
-                    "user_id": user_id,
-                    "name": "Current User",
-                    "job_role": "Learner",
-                    "department": "General",
-                    "skill_level": "Beginner",
-                    "learning_goal": entities["goal"],
-                    "preferred_category": "Data Science" if "data" in entities["goal"].lower() else "Business",
-                    "preferred_difficulty": "Beginner",
-                    "preferred_duration": "Medium",
-                    "known_skills": [],
-                    "enrolled_courses": []
-                }
+                if recs['recommendations']:
+                    top_course = recs['recommendations'][0]
+                    course_title = top_course['title']
+                    response["text"] = f"Based on your goal to {goal}, I recommend: {course_title}."
+                    response["action"] = "recommend_course"
+                    response["data"] = recs
+                else:
+                    response["text"] = f"I understand you want to {goal}, but I couldn't find a matching course right now."
+                    
+            except Exception as e:
+                logger.error(f"Recommendation failed: {e}")
+                response["text"] = "I had trouble accessing the course catalog."
                 
-                try:
-                    recs = recommendation_service.get_recommendations(user_data)
-                    top_course = recs['recommendations'][0] if recs['recommendations'] else None
-                    
-                    if top_course:
-                        course_title = top_course['title']
-                        response["text"] = f"I found a great course for you: {course_title}. It matches your goal to become a {entities['goal']}."
-                        response["action"] = "recommend_course"
-                        response["data"] = recs
-                    else:
-                        response["text"] = f"I processed your goal to become a {entities['goal']}, but couldn't find a specific course yet."
-                except Exception as e:
-                    logger.error(f"Recommendation failed: {e}")
-                    response["text"] = "I had trouble getting recommendations right now."
-                    
         elif intent == "greeting":
-            response["text"] = "Hello! I am your AI learning assistant. Tell me, what do you want to learn today?"
+            response["text"] = "Hello! I am your AI learning assistant. I can help you find the perfect course. What would you like to learn?"
+        
+        else:
+             response["text"] = "I can help you find courses. Try saying 'I want to become a data scientist'."
             
         return response
 
-    def _classify_intent(self, text: str) -> Tuple[str, Dict]:
-        text = text.lower()
+    def _classify_intent_ollama(self, text: str) -> Tuple[str, Dict]:
+        """
+        Call Ollama to classify intent and extract entities.
+        """
+        system_prompt = """
+        You are an NLU assistant for a Learning Management System.
+        Analyze the user's input and extract the intent and entities in JSON format.
         
-        # Simple keyword matching
-        if any(word in text for word in ["hello", "hi", "hey"]):
+        Possible Intents:
+        - "learning_goal": User wants to learn a skill, topic, or become a specific role.
+        - "greeting": User is saying hello.
+        - "unknown": Anything else.
+        
+        If intent is "learning_goal", extract:
+        - "goal": The specific role or skill (e.g., "Data Scientist", "Python").
+        - "category": A broad category (e.g., "Data Science", "Business", "Web Development").
+        
+        Output JSON ONLY. Do not explain.
+        Example: {"intent": "learning_goal", "entities": {"goal": "Data Scientist", "category": "Data Science"}}
+        """
+        
+        try:
+            payload = {
+                "model": OLLAMA_MODEL,
+                "prompt": f"{system_prompt}\n\nUser Input: {text}\nJSON Response:",
+                "stream": False,
+                "format": "json"
+            }
+            
+            response = requests.post(OLLAMA_URL, json=payload, timeout=5)
+            response.raise_for_status()
+            
+            result = response.json()
+            llm_output = result.get("response", "{}")
+            logger.info(f"LLM Output: {llm_output}")
+            
+            parsed = json.loads(llm_output)
+            return parsed.get("intent", "unknown"), parsed.get("entities", {})
+            
+        except Exception as e:
+            logger.error(f"Ollama NLU failed: {e}")
+            # Fallback to regex if LLM fails
+            return self._fallback_regex(text)
+
+    def _fallback_regex(self, text: str) -> Tuple[str, Dict]:
+        logger.info("Using fallback regex NLU")
+        text = text.lower()
+        import re
+        if any(w in text for w in ["hello", "hi", "hey"]):
             return "greeting", {}
         
-        # Regex for "I want to become a [Goal]" or "I want to learn [Skill]"
-        goal_match = re.search(r"i want to (?:become|be) (?:a|an) (.+)", text)
-        if goal_match:
-            return "learning_goal", {"goal": goal_match.group(1).strip()}
+        match = re.search(r"want to (?:be|become|learn) (?:a |an )?(.+)", text)
+        if match:
+            goal = match.group(1).strip()
+            category = "Data Science" if "data" in goal else "Business"
+            return "learning_goal", {"goal": goal, "category": category}
             
-        learn_match = re.search(r"i want to learn (.+)", text)
-        if learn_match:
-             return "learning_goal", {"goal": learn_match.group(1).strip()}
-
         return "unknown", {}
 
 nlu_service = NLUService()
